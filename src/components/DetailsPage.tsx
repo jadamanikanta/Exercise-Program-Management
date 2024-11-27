@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Grid,
@@ -20,15 +20,17 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import DuplicateIcon from "@mui/icons-material/FileCopy";
-import FitnessCenterIcon from "@mui/icons-material/FitnessCenter"; // Example icon for Dumbbell
-import SportsKabaddiIcon from "@mui/icons-material/SportsKabaddi"; // Example icon for Resistance Band
-import KingBedIcon from "@mui/icons-material/KingBed"; // Example icon for Bed
-import AccessibilityIcon from "@mui/icons-material/Accessibility"; // Example icon for Front
-import PanoramaHorizontalIcon from "@mui/icons-material/PanoramaHorizontal"; // Example icon for Slide
-import TouchAppIcon from "@mui/icons-material/TouchApp"; // Example icon for Manual Rep Count
+import FitnessCenterIcon from "@mui/icons-material/FitnessCenter"; 
+import SportsKabaddiIcon from "@mui/icons-material/SportsKabaddi"; 
+import KingBedIcon from "@mui/icons-material/KingBed"; 
+import AccessibilityIcon from "@mui/icons-material/Accessibility"; 
+import PanoramaHorizontalIcon from "@mui/icons-material/PanoramaHorizontal"; 
+import TouchAppIcon from "@mui/icons-material/TouchApp"; 
 import RemoveIcon from '@mui/icons-material/Remove';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import Divider from '@mui/material/Divider';
+import axios from "axios";
+import { createExercises  } from "../apiRequest/Exercises";
 
 
 const ExerciseProgram = () => {
@@ -52,12 +54,100 @@ const ExerciseProgram = () => {
     { label: "Slide", icon: <PanoramaHorizontalIcon /> },
     { label: "Manual Rep Count", icon: <TouchAppIcon /> },
   ];
+  
+  const [exercises, setExercises] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [data, setData] = useState<any[]>([]);
 
-  const [exercises, setExercises] = useState([
-    { name: "Knee Bends", sets: 10, holdTime: 10, weight: 0 },
-    { name: "Forward Lunge (without hand support)", sets: 10, reps: 10, weight: 0 },
-    { name: "VOXR1", turnsPerMinute: 10 },
-  ]);
+  const [isOn, setIsOn] = useState(false);
+
+  const getAllExercises = async () => {
+    
+    return [
+      { name: 'Push Up', sets: 3, reps: 12, holdTime: 0, weight: 0, turnsPerMinute: 0 },
+      { name: 'Squats', sets: 4, reps: 10, holdTime: 0, weight: 0, turnsPerMinute: 0 },
+      { name: 'Squats', sets: 4, reps: 10, holdTime: 0, weight: 0, turnsPerMinute: 0 },
+    ];
+  };
+
+  
+  useEffect(() => {
+    const getData = async () => {
+      try {
+        const responseGetOrganization = await getAllExercises();
+        if (Array.isArray(responseGetOrganization)) {
+          setData(responseGetOrganization); 
+        }
+      } catch (error) {
+        console.error("Error fetching exercises:", error);
+      }
+    };
+    getData();
+  }, []);
+  
+
+
+  const deleteExercise = (index: number) => {
+    setData(data.filter((_, i) => i !== index)); 
+  };
+  
+
+  const addExercise = () => {
+    setExercises([...exercises, { name: "", sets: "", reps: "", holdTime: "", weight: "", turnsPerMinute: "",is_deleted: false }]);
+  };
+
+  
+
+
+  const saveExercises = async () => {
+    try {
+      setLoading(true);
+      setError(""); 
+      setSuccessMessage(""); 
+  
+      
+      const response = await createExercises(exercises)
+      console.log("API response:", response);
+  
+      
+      if (response?.message == "success") {
+        setSuccessMessage("Exercises saved successfully!");
+        
+        
+        alert("Exercises successfully created!");
+        window.location.reload(); 
+      } else {
+       
+        setError("Failed to save exercises. Please try again.");
+        alert(response.data.message || "Something went wrong.");
+      }
+    } catch (err: any) {
+      
+      setError("Failed to save exercises. Please try again.");
+      
+      
+      alert("Error: " + (err?.response?.data?.message || err?.message || "Something went wrong"));
+    } finally {
+      setLoading(false); 
+    }
+  };
+  
+  
+  
+  
+  const updateExercise = (index, field, value) => {
+    const updatedExercises = exercises.map((exercise, i) =>
+      i === index ? { ...exercise, [field]: value } : exercise
+    );
+    setExercises(updatedExercises);
+  };
+
+
+  const toggleSwitch = () => {
+    setIsOn(!isOn);
+  };
 
   const handleAddCombo = (combo: string) => {
     if (!exerciseCombo.includes(combo)) {
@@ -74,9 +164,7 @@ const ExerciseProgram = () => {
     setExerciseCombo([]);
   };
 
-  const addExercise = () => {
-    setExercises([...exercises, { name: "New Exercise", sets: 0, reps: 0, weight: 0 }]);
-  };
+  
    
   const incrementBreakInterval = () => {
     setBreakInterval((prev) => prev + 1);
@@ -85,10 +173,7 @@ const ExerciseProgram = () => {
   const decrementBreakInterval = () => {
     setBreakInterval((prev) => (prev > 0 ? prev - 1 : 0));
   };
-  const deleteExercise = (index: number) => {
-    const updatedExercises = exercises.filter((_, i) => i !== index);
-    setExercises(updatedExercises);
-  };
+  
 
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -110,6 +195,54 @@ const ExerciseProgram = () => {
   const decrementDailyFrequency = () => {
     setDailyFrequency((prev) => (prev > 0 ? prev - 1 : 0));
   };
+
+
+
+  const saveAsCombo = async () => {
+    try {
+      
+      const payload = {
+        programmeName: programmeName, 
+        selectedCombo: exerciseCombo, 
+        exercises: exercises.map((exercise) => ({
+          name: exercise.name,
+          sets: exercise.sets,
+          reps: exercise.reps,
+          holdTime: exercise.holdTime,
+          weight: exercise.weight,
+          turnsPerMinute: exercise.turnsPerMinute,
+        })), 
+        daysOfWeek: selectedDays, 
+        notes:notes, 
+      };
+  
+      
+      const response = await fetch("http://localhost:3000/api/v1/programs/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+  
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Program saved successfully:", result);
+        alert("Program saved successfully!");
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        console.error("Error saving program:", error.message);
+        alert(`Error: ${error.message}`);
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      alert("An unexpected error occurred. Please try again.");
+      window.location.reload();
+    }
+  };
+  
   
    
   
@@ -211,163 +344,321 @@ const ExerciseProgram = () => {
         </Typography>
       </Grid>
 
-      {exercises.map((exercise, index) => (
+      <Box>
+ 
+
+     
+      <Box display="flex" flexDirection="column" gap={2}>
+      {data.map((exercise, index) => (  
         <Box
           key={index}
-          mb={2}
-          p={2}
-          border={1}
-          borderRadius={2}
-          borderColor="grey.300"
+          display="flex"
+          width="100%"
+          alignItems="center"
+          sx={{ mb: 1, border: "0.5px solid", padding: 2, borderRadius: "25px" }}
         >
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="subtitle1">{exercise.name}</Typography>
-            </Grid>
-            {exercise.sets !== undefined && (
-              <Grid item xs={4} sm={2}>
+          <Box width="40%">
+            <TextField
+              label="Exercise Name"
+              value={exercise.name}
+              size="small"
+              fullWidth
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "& fieldset": {
+                    border: "none",
+                  },
+                },
+              }}
+              disabled
+            />
+          </Box>
+
+          <Box width="60%">
+            <Box display="flex" flexDirection={"column"} gap={1} sx={{ mb: 1 }}>
+              <Box
+                display="flex"
+                justifyContent="right"
+                alignItems="center"
+                sx={{ mb: 1, gap: 6 }}
+              >
+                <Box
+                  onClick={toggleSwitch}
+                  sx={{
+                    width: 60,
+                    height: 30,
+                    backgroundColor: isOn ? "success.main" : "grey.400",
+                    borderRadius: 15,
+                    position: "relative",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 26,
+                      height: 26,
+                      backgroundColor: "white",
+                      borderRadius: "50%",
+                      position: "absolute",
+                      top: 2,
+                      left: isOn ? 32 : 2,
+                      transition: "left 0.3s ease",
+                    }}
+                  ></Box>
+                </Box>
+
+                <IconButton color="primary" size="small" sx={{ width: 30, height: 30 }}>
+                  <DuplicateIcon />
+                </IconButton>
+
+                <IconButton
+                  onClick={() => deleteExercise(index)}
+                  color="error"
+                  size="small"
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+
+              <Box display="flex" justifyContent="space-between" flexWrap="wrap" gap={1}>
                 <TextField
                   label="Sets"
+                  value={exercise.sets}
                   type="number"
-                  defaultValue={exercise.sets}
                   size="small"
-                  fullWidth
+                  sx={{ width: "12%" }}
+                  disabled
                 />
-              </Grid>
-            )}
-            {exercise.reps !== undefined && (
-              <Grid item xs={4} sm={2}>
                 <TextField
                   label="Reps"
+                  value={exercise.reps}
                   type="number"
-                  defaultValue={exercise.reps}
                   size="small"
-                  fullWidth
+                  sx={{ width: "12%" }}
+                  disabled
                 />
-              </Grid>
-            )}
-            {exercise.holdTime !== undefined && (
-              <Grid item xs={4} sm={2}>
                 <TextField
                   label="Hold Time"
+                  value={exercise.holdTime}
                   type="number"
-                  defaultValue={exercise.holdTime}
                   size="small"
-                  fullWidth
+                  sx={{ width: "12%" }}
+                  disabled
                 />
-              </Grid>
-            )}
-            {exercise.weight !== undefined && (
-              <Grid item xs={4} sm={2}>
                 <TextField
                   label="Weight (Kg)"
+                  value={exercise.weight}
                   type="number"
-                  defaultValue={exercise.weight}
                   size="small"
-                  fullWidth
+                  sx={{ width: "12%" }}
+                  disabled
                 />
-              </Grid>
-            )}
-            {exercise.turnsPerMinute !== undefined && (
-              <Grid item xs={4} sm={2}>
                 <TextField
                   label="Turns Per Minute"
+                  value={exercise.turnsPerMinute}
                   type="number"
-                  defaultValue={exercise.turnsPerMinute}
                   size="small"
-                  fullWidth
+                  sx={{ width: "12%" }}
+                  disabled
                 />
-              </Grid>
-            )}
-            
-            <Grid item xs={12} sm={2}>
-              <IconButton
-                onClick={() => deleteExercise(index)}
-                color="error"
-                size="small"
-              >
-                <DeleteIcon />
-              </IconButton>
-              <IconButton color="primary" size="small" sx={{ color: "blue" }}>
-                <DuplicateIcon /> Duplicate
-              </IconButton>
-            </Grid>
-          </Grid>
+              </Box>
+            </Box>
+          </Box>
         </Box>
       ))}
+    </Box>
 
-<Box display="flex" justifyContent="space-between" alignItems="center" gap={2}>
+
+        
+      {exercises.map((exercise, index) => (
+  <Box
+    key={index}
+    display="flex"
+    width="100%"
+    alignItems="center"
+    sx={{ mb: 1, border: "0.5px solid", padding: 2, borderRadius: "25px" }}
+  >
+    <Box width="40%">
+      <TextField
+        label="Exercise Name"
+        value={exercise.name}
+        onChange={(e) => updateExercise(index, "name", e.target.value)}
+        size="small"
+        fullWidth
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            "& fieldset": {
+              border: "none",
+            },
+          },
+        }}
+      />
+    </Box>
+
+    <Box width="60%">
+      <Box display="flex" flexDirection={"column"} gap={1} sx={{ mb: 1 }}>
+        <Box
+          display="flex"
+          justifyContent="right"
+          alignItems="center"
+          sx={{ mb: 1, gap: 6 }}
+        >
+          <Box
+            onClick={toggleSwitch}
+            sx={{
+              width: 60,
+              height: 30,
+              backgroundColor: isOn ? "success.main" : "grey.400",
+              borderRadius: 15,
+              position: "relative",
+              cursor: "pointer",
+              transition: "background-color 0.3s ease",
+            }}
+          >
+            <Box
+              sx={{
+                width: 26,
+                height: 26,
+                backgroundColor: "white",
+                borderRadius: "50%",
+                position: "absolute",
+                top: 2,
+                left: isOn ? 32 : 2,
+                transition: "left 0.3s ease",
+              }}
+            ></Box>
+          </Box>
+
+          <IconButton color="primary" size="small" sx={{ width: 30, height: 30 }}>
+            <DuplicateIcon />
+          </IconButton>
+
+          <IconButton
+            onClick={() => deleteExercise(index)}
+            color="error"
+            size="small"
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Box>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          flexWrap="wrap"
+          gap={1}
+        >
+          <TextField
+            label="Sets"
+            type="number"
+            value={exercise.sets}
+            onChange={(e) => updateExercise(index, "sets", e.target.value)}
+            size="small"
+            sx={{ width: "12%" }}
+          />
+          <TextField
+            label="Reps"
+            type="number"
+            value={exercise.reps}
+            onChange={(e) => updateExercise(index, "reps", e.target.value)}
+            size="small"
+            sx={{ width: "12%" }}
+          />
+          <TextField
+            label="Hold Time"
+            type="number"
+            value={exercise.holdTime}
+            onChange={(e) => updateExercise(index, "holdTime", e.target.value)}
+            size="small"
+            sx={{ width: "12%" }}
+          />
+          <TextField
+            label="Weight (Kg)"
+            type="number"
+            value={exercise.weight}
+            onChange={(e) => updateExercise(index, "weight", e.target.value)}
+            size="small"
+            sx={{ width: "12%" }}
+          />
+          <TextField
+            label="Turns Per Minute"
+            type="number"
+            value={exercise.turnsPerMinute}
+            onChange={(e) =>
+              updateExercise(index, "turnsPerMinute", e.target.value)
+            }
+            size="small"
+            sx={{ width: "12%" }}
+          />
+        </Box>
+      </Box>
       
-      <Button
-        variant="outlined"
-        startIcon={<AddIcon />}
-        onClick={addExercise}
-        sx={{ mt: 2,ml: 3 ,padding:3}}
-      >
-        Add Exercises
-      </Button>
-
-      
-      <Box
-  display="flex"
-  flexDirection={"column"}
-  alignItems="center"
-  gap={1} 
-  justifyContent="flex-start" 
-  sx={{ padding: 1 }}
->
-  <Typography sx={{ fontSize: '22px', paddingRight: '10px',fontWeight:'bold' }}>
-    Break Interval
-    <Tooltip
-      title="Time to rest between exercises"
-      placement="top"
-      sx={{ marginLeft: '10px', marginRight: '10px' }}
-    >
-      <HelpOutlineIcon fontSize="small" />
-    </Tooltip>
-  </Typography>
-
-  <Box display="flex" alignItems="center" gap={0.5}>
-    <IconButton
-      onClick={decrementBreakInterval}
-      size="small"
-      sx={{
-        border: '1px solid #ccc',
-        backgroundColor: '#f0f0f0',
-        '&:hover': {
-          backgroundColor: '#e0e0e0',
-        },
-      }}
-    >
-      <RemoveIcon />
-    </IconButton>
-    <TextField
-      value={breakInterval}
-      variant="outlined"
-      size="small"
-      inputProps={{
-        readOnly: true,
-        style: { textAlign: 'center', width: '20px' },
-      }}
-    />
-    <IconButton
-      onClick={incrementBreakInterval}
-      size="small"
-      sx={{
-        border: '1px solid #ccc',
-        backgroundColor: '#f0f0f0',
-        '&:hover': {
-          backgroundColor: '#e0e0e0',
-        },
-      }}
-    >
-      <AddIcon />
-    </IconButton>
-    <Typography>seconds</Typography>
+      <Box display="flex" justifyContent="flex-end" sx={{ mt: 2 }}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={saveExercises}
+          disabled={loading}
+        >
+          {loading ? "Saving..." : "Save Exercises"}
+        </Button>
+      </Box>
+    </Box>
   </Box>
-</Box>
+))}
+
+      
 
 
+      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2}>
+        <Button
+          variant="outlined"
+          startIcon={<AddIcon />}
+          onClick={addExercise}
+          sx={{ mt: 2, ml: 3, padding: 3 }}
+          disabled={loading}
+        >
+          {loading ? "Adding..." : "Add Exercise"}
+        </Button>
+
+        {successMessage && <Typography color="success.main">{successMessage}</Typography>}
+        {error && <Typography color="error.main">{error}</Typography>}
+
+        <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
+          <Typography sx={{ fontSize: "22px", fontWeight: "bold" }}>
+            Break Interval
+            <Tooltip title="Time to rest between exercises" placement="top">
+              <HelpOutlineIcon fontSize="small" />
+            </Tooltip>
+          </Typography>
+          <Box display="flex" alignItems="center" gap={1}>
+            <IconButton
+              onClick={decrementBreakInterval}
+              size="small"
+              sx={{ border: "1px solid #ccc", backgroundColor: "#f0f0f0" }}
+            >
+              <RemoveIcon />
+            </IconButton>
+            <TextField
+              value={breakInterval}
+              variant="outlined"
+              size="small"
+              inputProps={{ readOnly: true, style: { textAlign: "center", width: "20px" } }}
+            />
+            <IconButton
+              onClick={incrementBreakInterval}
+              size="small"
+              sx={{ border: "1px solid #ccc", backgroundColor: "#f0f0f0" }}
+            >
+              <AddIcon />
+            </IconButton>
+            <Typography>seconds</Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      
+      
     </Box>
 
     <Divider sx={{ borderWidth: 3, borderColor: 'gray', marginY: 2 }} />
@@ -504,16 +795,17 @@ const ExerciseProgram = () => {
         }}
       >
         <Button
-          variant="contained"
-          sx={{
-            backgroundColor: "#1976d2",
-            "&:hover": {
-              backgroundColor: "#1565c0",
-            },
-          }}
-        >
-          Save as Combo
-        </Button>
+  variant="contained"
+  onClick={saveAsCombo}
+  sx={{
+    backgroundColor: "#1976d2",
+    "&:hover": {
+      backgroundColor: "#1565c0",
+    },
+  }}
+>
+  Save as Combo
+</Button>
         <Button
           variant="contained"
           sx={{
